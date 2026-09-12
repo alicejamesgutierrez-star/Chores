@@ -1,0 +1,519 @@
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+<style>
+  :root{
+    --ink:#1F2430;
+    --ink-soft:#6B7280;
+    --bg:#F4F5F7;
+    --card:#FFFFFF;
+    --accent:#3E6259;
+    --accent-dark:#2C4A42;
+    --accent-soft:#E6EDEB;
+    --amber:#9C6B26;
+    --amber-soft:#F4E9D8;
+    --danger:#A6412F;
+    --danger-soft:#F3E2DE;
+    --line:#E2E4E8;
+    --radius:10px;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:'Inter',sans-serif;}
+  #app{max-width:480px;margin:0 auto;min-height:100vh;display:flex;flex-direction:column;background:var(--bg);}
+
+  header{background:var(--accent-dark);color:#fff;padding:20px 18px 16px;}
+  header h1{font-size:18px;margin:0 0 12px;font-weight:700;letter-spacing:-0.2px;}
+  .stat-row{display:flex;gap:8px;}
+  .stat-pill{flex:1;background:rgba(255,255,255,0.09);border-radius:8px;padding:8px 10px;}
+  .stat-pill .label{font-size:11px;opacity:0.75;display:block;margin-bottom:2px;}
+  .stat-pill .value{font-size:16px;font-weight:700;}
+  .sync-dot{display:inline-block;width:7px;height:7px;border-radius:50%;margin-right:5px;background:#7FBF9E;}
+  .sync-dot.off{background:#D98C6B;}
+  .sync-note{font-size:10.5px;opacity:0.75;margin-top:8px;}
+
+  main{flex:1;padding:16px 16px 88px;}
+  .card{background:var(--card);border-radius:var(--radius);padding:14px 16px;margin-bottom:12px;border:1px solid var(--line);}
+  .section-title{font-weight:700;font-size:14px;margin:0 0 10px;color:var(--ink);}
+
+  .day-picker{display:flex;gap:6px;margin-bottom:14px;}
+  .day-btn{flex:1;text-align:center;padding:8px 0;border-radius:8px;border:1px solid var(--line);background:var(--card);font-weight:600;font-size:12.5px;color:var(--ink-soft);cursor:pointer;font-family:'Inter',sans-serif;}
+  .day-btn.active{background:var(--accent);color:#fff;border-color:var(--accent);}
+  .day-btn.today{box-shadow:inset 0 0 0 1px var(--accent);}
+  .day-btn.today.active{box-shadow:none;}
+
+  .chore-row{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--line);}
+  .chore-row:last-child{border-bottom:none;}
+  .chore-name{flex:1;font-weight:600;font-size:14px;}
+  .chore-value{font-size:12px;color:var(--ink-soft);display:block;font-weight:400;}
+
+  .status-chip{border:1px solid var(--line);border-radius:7px;padding:6px 10px;font-weight:600;font-size:12px;font-family:'Inter',sans-serif;cursor:pointer;min-width:82px;background:var(--card);color:var(--ink-soft);}
+  .status-reminder{border-color:var(--amber);color:var(--amber);background:var(--amber-soft);}
+  .status-done{border-color:var(--accent);color:var(--accent-dark);background:var(--accent-soft);}
+
+  .check-btn{width:30px;height:30px;border-radius:7px;border:1px solid var(--line);background:var(--card);font-size:15px;cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--ink-soft);}
+  .check-btn.on{background:var(--accent);border-color:var(--accent);color:#fff;}
+
+  .earned-tag{font-weight:600;color:var(--ink-soft);font-size:12.5px;min-width:34px;text-align:right;}
+
+  table.week-grid{width:100%;border-collapse:collapse;font-size:12px;}
+  table.week-grid th{font-weight:600;color:var(--ink-soft);padding:4px 2px;text-align:center;font-size:11.5px;}
+  table.week-grid td{text-align:center;padding:3px 2px;}
+  table.week-grid td.chore-label{text-align:left;font-weight:600;font-size:12.5px;padding-right:4px;}
+  .grid-cell{width:25px;height:25px;border-radius:6px;border:1px solid var(--line);background:var(--card);font-size:11px;cursor:pointer;color:var(--ink-soft);}
+  .grid-cell.on{background:var(--accent);color:#fff;border-color:var(--accent);}
+  .grid-cell.reminder{background:var(--amber-soft);color:var(--amber);border-color:var(--amber);}
+
+  .goal-hero{text-align:center;padding:4px 0 2px;}
+  .goal-hero h2{margin:0 0 4px;font-size:17px;font-weight:700;}
+  .goal-hero .amounts{font-size:14px;color:var(--ink-soft);margin-bottom:10px;}
+  .amounts b{color:var(--ink);font-weight:700;}
+  .progress-track{background:var(--line);border-radius:6px;height:10px;overflow:hidden;}
+  .progress-fill{height:100%;background:var(--accent);border-radius:6px;transition:width .3s ease;}
+  .progress-pct{text-align:center;font-weight:600;color:var(--ink-soft);margin-top:8px;font-size:12.5px;}
+
+  input, select{font-family:'Inter',sans-serif;border:1px solid var(--line);border-radius:8px;padding:8px 9px;font-size:14px;background:#fff;color:var(--ink);width:100%;}
+  label.field-label{font-size:11.5px;font-weight:600;color:var(--ink-soft);display:block;margin-bottom:3px;margin-top:8px;}
+  button.primary{background:var(--accent);color:#fff;border:none;border-radius:8px;padding:10px 14px;font-weight:600;font-family:'Inter',sans-serif;cursor:pointer;width:100%;font-size:14px;}
+  button.ghost{background:transparent;border:1px solid var(--line);color:var(--ink-soft);border-radius:8px;padding:9px 10px;font-weight:600;cursor:pointer;font-size:12.5px;}
+  button.danger{background:var(--danger-soft);color:var(--danger);border:none;border-radius:7px;width:30px;height:30px;cursor:pointer;font-size:13px;}
+
+  .manage-row{border:1px solid var(--line);border-radius:9px;padding:10px;margin-bottom:9px;}
+  .manage-row .top{display:flex;gap:8px;align-items:center;}
+  .manage-row .name-input{flex:1;}
+  .manage-row .bottom{display:flex;gap:8px;margin-top:8px;align-items:flex-end;}
+  .type-toggle{display:flex;border:1px solid var(--line);border-radius:8px;overflow:hidden;flex:1;}
+  .type-toggle button{flex:1;border:none;background:#fff;padding:8px 0;font-size:12.5px;font-weight:600;color:var(--ink-soft);cursor:pointer;font-family:'Inter',sans-serif;}
+  .type-toggle button.on{background:var(--accent);color:#fff;}
+  .value-input{width:70px;flex:none;}
+
+  .history-row{display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--line);font-size:13px;}
+  .history-row:last-child{border-bottom:none;}
+  .history-row .wk{font-weight:700;color:var(--ink);}
+  .history-row .spent-input{width:56px;padding:5px 6px;font-size:12px;}
+  .history-row .cols{display:flex;gap:10px;align-items:center;color:var(--ink-soft);}
+
+  nav#tabbar{position:fixed;bottom:0;left:0;right:0;max-width:480px;margin:0 auto;background:#fff;border-top:1px solid var(--line);display:flex;padding:8px 4px calc(env(safe-area-inset-bottom,0px) + 8px);}
+  nav#tabbar button{flex:1;background:none;border:none;padding:6px 0;font-family:'Inter',sans-serif;font-size:12.5px;font-weight:600;color:var(--ink-soft);cursor:pointer;border-bottom:2px solid transparent;}
+  nav#tabbar button.active{color:var(--accent-dark);border-bottom-color:var(--accent);}
+
+  .empty-note{color:var(--ink-soft);font-size:13px;text-align:center;padding:14px 0;}
+  .loading-screen{display:flex;align-items:center;justify-content:center;height:100vh;color:var(--ink-soft);font-size:14px;text-align:center;padding:0 30px;}
+  .save-hint{font-size:11px;color:var(--ink-soft);margin-bottom:10px;}
+</style>
+
+<div id="app"><div class="loading-screen">Connecting…</div></div>
+
+<script>
+(function(){
+  const firebaseConfig = {
+    apiKey: "AIzaSyBeGScRv50htXqKirNX-rwtik0096O3yN0",
+    authDomain: "sams-chores.firebaseapp.com",
+    databaseURL: "https://sams-chores-default-rtdb.asia-southeast1.firebasedatabase.app",
+    projectId: "sams-chores",
+    storageBucket: "sams-chores.firebasestorage.app",
+    messagingSenderId: "650371074103",
+    appId: "1:650371074103:web:c160f02ec94b5c6b7517b2"
+  };
+
+  let db = null;
+  let firebaseReady = false;
+  try{
+    firebase.initializeApp(firebaseConfig);
+    db = firebase.database();
+    firebaseReady = true;
+  }catch(e){
+    console.error("Firebase failed to initialize", e);
+  }
+
+  const DAYS = ["Mon","Tue","Wed","Thu","Fri","Sat","Sun"];
+  const DAY_LABEL = {Mon:"M",Tue:"T",Wed:"W",Thu:"T",Fri:"F",Sat:"S",Sun:"S"};
+
+  const DEFAULT_CHORES = [
+    {id:"c1", name:"Feed chickens", type:"daily", value:0},
+    {id:"c2", name:"Clean up dog poo", type:"daily", value:0},
+    {id:"c3", name:"Dishes / dishwasher", type:"paid", value:1},
+    {id:"c4", name:"Vacuum room", type:"paid", value:2},
+    {id:"c5", name:"Clean bathroom", type:"paid", value:1},
+    {id:"c6", name:"Bins", type:"paid", value:1},
+    {id:"c7", name:"Garden jobs", type:"paid", value:2}
+  ];
+  const DEFAULT_GOAL = {name:"New Minecraft thing", amount:50};
+
+  let chores = [], history = [], goal = DEFAULT_GOAL, week = null;
+  let activeTab = "chores", selectedDay = "Mon";
+  let connected = false;
+  let rolloverDone = false;
+  let editingField = false; // suppress remote re-render while typing
+
+  function mondayOf(d){
+    const date = new Date(d);
+    const day = date.getDay();
+    const diff = (day === 0 ? -6 : 1) - day;
+    date.setDate(date.getDate() + diff);
+    date.setHours(0,0,0,0);
+    return date.toISOString().slice(0,10);
+  }
+  function todayAbbrev(){
+    const idx = new Date().getDay();
+    return DAYS[idx === 0 ? 6 : idx - 1];
+  }
+  function fmtWeek(mondayStr){
+    const d = new Date(mondayStr + "T00:00:00");
+    return d.toLocaleDateString(undefined,{month:"short", day:"numeric"});
+  }
+
+  async function fbGetOnce(key, fallback){
+    if(!firebaseReady) return fallback;
+    try{
+      const snap = await db.ref(key).once("value");
+      const val = snap.val();
+      return (val === null || val === undefined) ? fallback : val;
+    }catch(e){ console.error("read failed", key, e); return fallback; }
+  }
+  async function fbSet(key, value){
+    if(!firebaseReady) return;
+    try{ await db.ref(key).set(value); connected = true; }
+    catch(e){ console.error("write failed", key, e); connected = false; render(); }
+  }
+
+  async function init(){
+    chores = await fbGetOnce("chores", null);
+    if(chores === null){ chores = DEFAULT_CHORES; await fbSet("chores", chores); }
+
+    goal = await fbGetOnce("goal", null);
+    if(goal === null){ goal = DEFAULT_GOAL; await fbSet("goal", goal); }
+
+    history = await fbGetOnce("history", []);
+    week = await fbGetOnce("week", null);
+
+    const currentMonday = mondayOf(new Date());
+    if(!week){
+      week = {weekStart: currentMonday, log: {}};
+      await fbSet("week", week);
+    } else if(week.weekStart !== currentMonday){
+      const earned = computeWeekEarned(week);
+      if(earned > 0 || Object.keys(week.log).length > 0){
+        history = [{weekStart: week.weekStart, earned, spent: 0, saved: earned}, ...history];
+        await fbSet("history", history);
+      }
+      week = {weekStart: currentMonday, log: {}};
+      await fbSet("week", week);
+    }
+    rolloverDone = true;
+    connected = firebaseReady;
+    selectedDay = todayAbbrev();
+    render();
+    attachLiveListeners();
+  }
+
+  function attachLiveListeners(){
+    if(!firebaseReady) return;
+    db.ref("chores").on("value", snap => {
+      const v = snap.val();
+      if(v !== null){ chores = v; connected = true; if(!editingField) render(); }
+    });
+    db.ref("goal").on("value", snap => {
+      const v = snap.val();
+      if(v !== null){ goal = v; connected = true; if(!editingField) render(); }
+    });
+    db.ref("history").on("value", snap => {
+      const v = snap.val();
+      if(v !== null){ history = v; connected = true; if(!editingField) render(); }
+    });
+    db.ref("week").on("value", snap => {
+      const v = snap.val();
+      if(v !== null && rolloverDone){ week = v; connected = true; render(); }
+    });
+  }
+
+  function statusOf(choreId, day){
+    return (week.log[choreId] && week.log[choreId][day]) || "missed";
+  }
+  function setStatus(choreId, day, status){
+    if(!week.log[choreId]) week.log[choreId] = {};
+    week.log[choreId][day] = status;
+    fbSet("week", week);
+    render();
+  }
+  function isChecked(choreId, day){
+    return statusOf(choreId, day) === "done";
+  }
+  function toggleCheck(choreId, day){
+    setStatus(choreId, day, isChecked(choreId, day) ? "missed" : "done");
+  }
+  function cycleStatus(choreId, day){
+    const order = ["missed","reminder","done"];
+    const next = order[(order.indexOf(statusOf(choreId, day)) + 1) % order.length];
+    setStatus(choreId, day, next);
+  }
+
+  function computeWeekEarned(wk){
+    let total = 0;
+    for(const chore of chores){
+      if(chore.type !== "paid") continue;
+      for(const day of DAYS){
+        if(wk.log[chore.id] && wk.log[chore.id][day] === "done") total += Number(chore.value)||0;
+      }
+    }
+    return total;
+  }
+  function totalSavedAllTime(){
+    const pastSaved = history.reduce((sum,h) => sum + (Number(h.saved)||0), 0);
+    return pastSaved + computeWeekEarned(week);
+  }
+
+  function renderHeader(){
+    const weekEarned = computeWeekEarned(week);
+    return `
+      <header>
+        <h1>Sam's Chores</h1>
+        <div class="stat-row">
+          <div class="stat-pill"><span class="label">This week</span><span class="value">$${weekEarned}</span></div>
+          <div class="stat-pill"><span class="label">Total saved</span><span class="value">$${totalSavedAllTime()}</span></div>
+          <div class="stat-pill"><span class="label">Goal</span><span class="value">${goal.amount ? "$"+goal.amount : "—"}</span></div>
+        </div>
+        <div class="sync-note"><span class="sync-dot ${connected?'':'off'}"></span>${connected ? "Synced" : "Offline — changes will save once reconnected"}</div>
+      </header>`;
+  }
+
+  function renderChoresTab(){
+    const daily = chores.filter(c => c.type === "daily");
+    const paid = chores.filter(c => c.type === "paid");
+    const dayPicker = DAYS.map(d => `<button class="day-btn ${d===selectedDay?'active':''} ${d===todayAbbrev()?'today':''}" data-day="${d}">${d}</button>`).join("");
+
+    const dailyRows = daily.map(c => {
+      const st = statusOf(c.id, selectedDay);
+      const label = st === "done" ? "Done" : st === "reminder" ? "Reminder" : "Not done";
+      return `<div class="chore-row">
+        <span class="chore-name">${c.name}</span>
+        <button class="status-chip status-${st}" data-cycle="${c.id}">${label}</button>
+      </div>`;
+    }).join("") || `<div class="empty-note">No daily responsibilities yet — add some in Manage.</div>`;
+
+    const paidRows = paid.map(c => {
+      const on = isChecked(c.id, selectedDay);
+      return `<div class="chore-row">
+        <span class="chore-name">${c.name}<span class="chore-value">$${c.value} a time</span></span>
+        <span class="earned-tag">${on ? "$"+c.value : ""}</span>
+        <button class="check-btn ${on?'on':''}" data-check="${c.id}">${on?'✓':''}</button>
+      </div>`;
+    }).join("") || `<div class="empty-note">No paid jobs yet — add some in Manage.</div>`;
+
+    return `
+      <div class="day-picker">${dayPicker}</div>
+      <div class="card">
+        <div class="section-title">Daily responsibilities</div>
+        ${dailyRows}
+      </div>
+      <div class="card">
+        <div class="section-title">Paid jobs</div>
+        ${paidRows}
+      </div>`;
+  }
+
+  function renderWeekTab(){
+    const rows = chores.map(c => {
+      const cells = DAYS.map(d => {
+        if(c.type === "paid"){
+          const on = isChecked(c.id, d);
+          return `<td><button class="grid-cell ${on?'on':''}" data-check="${c.id}" data-day="${d}">${on?'✓':''}</button></td>`;
+        }else{
+          const st = statusOf(c.id, d);
+          const symbol = st === "done" ? "✓" : st === "reminder" ? "!" : "";
+          const cls = st === "reminder" ? "reminder" : (st === "done" ? "on" : "");
+          return `<td><button class="grid-cell ${cls}" data-cycle="${c.id}" data-day="${d}">${symbol}</button></td>`;
+        }
+      }).join("");
+      return `<tr><td class="chore-label">${c.name}</td>${cells}</tr>`;
+    }).join("");
+
+    const historyRows = history.map((h, i) => `
+      <div class="history-row">
+        <span class="wk">${fmtWeek(h.weekStart)}</span>
+        <div class="cols">
+          <span>Earned $${h.earned}</span>
+          <input class="spent-input" type="number" min="0" value="${h.spent}" data-hist-spent="${i}">
+          <span>Saved $${h.saved}</span>
+        </div>
+      </div>`).join("") || `<div class="empty-note">No past weeks yet.</div>`;
+
+    return `
+      <div class="card">
+        <div class="section-title">Week of ${fmtWeek(week.weekStart)}</div>
+        <table class="week-grid">
+          <thead><tr><th></th>${DAYS.map(d=>`<th>${DAY_LABEL[d]}</th>`).join("")}</tr></thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </div>
+      <div class="card">
+        <div class="section-title">History</div>
+        ${historyRows}
+      </div>`;
+  }
+
+  function renderGoalTab(){
+    const saved = totalSavedAllTime();
+    const pct = goal.amount > 0 ? Math.min(100, Math.round((saved/goal.amount)*100)) : 0;
+    return `
+      <div class="card goal-hero">
+        <h2>${goal.name || "No goal set yet"}</h2>
+        <div class="amounts">Saved <b>$${saved}</b> of <b>$${goal.amount}</b></div>
+        <div class="progress-track"><div class="progress-fill" style="width:${pct}%"></div></div>
+        <div class="progress-pct">${pct}% there</div>
+      </div>
+      <div class="card">
+        <div class="section-title">Edit goal</div>
+        <label class="field-label">Saving for</label>
+        <input id="goal-name" type="text" value="${goal.name}">
+        <label class="field-label">Goal amount ($)</label>
+        <input id="goal-amount" type="number" min="0" value="${goal.amount}">
+        <div style="margin-top:10px;"><button class="primary" id="save-goal">Save goal</button></div>
+      </div>`;
+  }
+
+  function renderManageTab(){
+    const rows = chores.map((c, i) => `
+      <div class="manage-row" data-idx="${i}">
+        <div class="top">
+          <input class="name-input" data-field="name" value="${c.name}">
+          <button class="danger" data-delete="${i}">✕</button>
+        </div>
+        <div class="bottom">
+          <div class="type-toggle">
+            <button data-field="type" data-val="daily" class="${c.type==='daily'?'on':''}">Daily</button>
+            <button data-field="type" data-val="paid" class="${c.type==='paid'?'on':''}">Paid</button>
+          </div>
+          <input class="value-input" data-field="value" type="number" min="0" value="${c.value}" ${c.type==='daily'?'disabled':''} placeholder="$">
+        </div>
+      </div>`).join("");
+
+    return `
+      <div class="card">
+        <div class="section-title">Manage chores</div>
+        <div class="save-hint">Changes save automatically and sync to both of you.</div>
+        ${rows}
+        <button class="ghost" id="add-chore" style="width:100%;margin-top:2px;">+ Add a chore</button>
+      </div>
+      <div class="card">
+        <div class="section-title">Reset</div>
+        <button class="ghost" id="reset-all">Clear all chores, history and goal</button>
+      </div>`;
+  }
+
+  function render(){
+    const app = document.getElementById("app");
+    let content = "";
+    if(activeTab === "chores") content = renderChoresTab();
+    else if(activeTab === "week") content = renderWeekTab();
+    else if(activeTab === "goal") content = renderGoalTab();
+    else if(activeTab === "manage") content = renderManageTab();
+
+    app.innerHTML = `
+      ${renderHeader()}
+      <main>${content}</main>
+      <nav id="tabbar">
+        <button data-tab="chores" class="${activeTab==='chores'?'active':''}">Chores</button>
+        <button data-tab="week" class="${activeTab==='week'?'active':''}">Week</button>
+        <button data-tab="goal" class="${activeTab==='goal'?'active':''}">Goal</button>
+        <button data-tab="manage" class="${activeTab==='manage'?'active':''}">Manage</button>
+      </nav>`;
+
+    bindEvents();
+  }
+
+  function bindEvents(){
+    document.querySelectorAll("#tabbar button").forEach(b => {
+      b.onclick = () => { activeTab = b.dataset.tab; render(); };
+    });
+    document.querySelectorAll(".day-btn[data-day]").forEach(b => {
+      b.onclick = () => { selectedDay = b.dataset.day; render(); };
+    });
+    document.querySelectorAll("[data-cycle]").forEach(b => {
+      b.onclick = () => cycleStatus(b.dataset.cycle, b.dataset.day || selectedDay);
+    });
+    document.querySelectorAll("[data-check]").forEach(b => {
+      b.onclick = () => toggleCheck(b.dataset.check, b.dataset.day || selectedDay);
+    });
+
+    const saveGoalBtn = document.getElementById("save-goal");
+    if(saveGoalBtn){
+      saveGoalBtn.onclick = async () => {
+        goal = {
+          name: document.getElementById("goal-name").value.trim() || "Savings goal",
+          amount: Number(document.getElementById("goal-amount").value) || 0
+        };
+        await fbSet("goal", goal);
+        render();
+      };
+    }
+
+    document.querySelectorAll("[data-hist-spent]").forEach(inp => {
+      inp.onfocus = () => editingField = true;
+      inp.onblur = () => editingField = false;
+      inp.onchange = async () => {
+        const i = Number(inp.dataset.histSpent);
+        const spent = Number(inp.value) || 0;
+        history[i].spent = spent;
+        history[i].saved = history[i].earned - spent;
+        editingField = false;
+        await fbSet("history", history);
+        render();
+      };
+    });
+
+    document.querySelectorAll(".manage-row").forEach(row => {
+      const idx = Number(row.dataset.idx);
+      row.querySelectorAll("[data-field]").forEach(f => {
+        if(f.tagName === "BUTTON"){
+          f.onclick = async () => {
+            chores[idx].type = f.dataset.val;
+            await fbSet("chores", chores);
+            render();
+          };
+        } else {
+          f.onfocus = () => editingField = true;
+          f.onblur = () => editingField = false;
+          f.onchange = async () => {
+            const field = f.dataset.field;
+            chores[idx][field] = field === "value" ? (Number(f.value)||0) : f.value;
+            editingField = false;
+            await fbSet("chores", chores);
+            render();
+          };
+        }
+      });
+    });
+    document.querySelectorAll("[data-delete]").forEach(btn => {
+      btn.onclick = async () => {
+        const i = Number(btn.dataset.delete);
+        chores.splice(i,1);
+        await fbSet("chores", chores);
+        render();
+      };
+    });
+    const addBtn = document.getElementById("add-chore");
+    if(addBtn){
+      addBtn.onclick = async () => {
+        chores.push({id: "c" + Date.now(), name:"New chore", type:"paid", value:1});
+        await fbSet("chores", chores);
+        render();
+      };
+    }
+    const resetBtn = document.getElementById("reset-all");
+    if(resetBtn){
+      resetBtn.onclick = async () => {
+        if(!confirm("Clear all chores, history and the goal for everyone? This can't be undone.")) return;
+        chores = DEFAULT_CHORES.map(c => ({...c}));
+        history = [];
+        goal = {...DEFAULT_GOAL};
+        week = {weekStart: mondayOf(new Date()), log:{}};
+        await Promise.all([fbSet("chores",chores), fbSet("history",history), fbSet("goal",goal), fbSet("week",week)]);
+        render();
+      };
+    }
+  }
+
+  init();
+})();
+</script>
