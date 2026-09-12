@@ -145,6 +145,14 @@
   let connected = false;
   let rolloverDone = false;
   let editingField = false; // suppress remote re-render while typing
+  let initCompleted = false;
+  let listenersAttachedFlag = false;
+
+  function attachLiveListenersOnce(){
+    if(listenersAttachedFlag) return;
+    listenersAttachedFlag = true;
+    attachLiveListeners();
+  }
 
   function mondayOf(d){
     const date = new Date(d);
@@ -203,9 +211,28 @@
     rolloverDone = true;
     connected = firebaseReady;
     selectedDay = todayAbbrev();
+    initCompleted = true;
     render();
-    attachLiveListeners();
+    attachLiveListenersOnce();
   }
+
+  // Safety net: if Firebase never responds (blocked network, etc.), don't
+  // hang on the loading screen forever — fall back to local defaults after
+  // 6 seconds so the app is at least usable, and keep listening in case a
+  // connection comes through later.
+  setTimeout(() => {
+    if(!initCompleted){
+      chores = DEFAULT_CHORES.map(c => ({...c}));
+      goal = {...DEFAULT_GOAL};
+      history = [];
+      week = {weekStart: mondayOf(new Date()), log: {}};
+      selectedDay = todayAbbrev();
+      connected = false;
+      rolloverDone = true;
+      render();
+      attachLiveListenersOnce();
+    }
+  }, 6000);
 
   function attachLiveListeners(){
     if(!firebaseReady) return;
