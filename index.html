@@ -1,7 +1,5 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
 <style>
   :root{
     --ink:#1F2430;
@@ -106,25 +104,8 @@
 
 <script>
 (function(){
-  const firebaseConfig = {
-    apiKey: "AIzaSyBeGScRv50htXqKirNX-rwtik0096O3yN0",
-    authDomain: "sams-chores.firebaseapp.com",
-    databaseURL: "https://sams-chores-default-rtdb.asia-southeast1.firebasedatabase.app",
-    projectId: "sams-chores",
-    storageBucket: "sams-chores.firebasestorage.app",
-    messagingSenderId: "650371074103",
-    appId: "1:650371074103:web:c160f02ec94b5c6b7517b2"
-  };
-
-  let db = null;
-  let firebaseReady = false;
-  try{
-    firebase.initializeApp(firebaseConfig);
-    db = firebase.database();
-    firebaseReady = true;
-  }catch(e){
-    console.error("Firebase failed to initialize", e);
-  }
+  const DB_URL = "https://sams-chores-default-rtdb.asia-southeast1.firebasedatabase.app";
+  let firebaseReady = true;
 
   const DAYS = ["Mon","Tue","Wed","Thu","Fri","Sat","Sun"];
   const DAY_LABEL = {Mon:"M",Tue:"T",Wed:"W",Thu:"T",Fri:"F",Sat:"S",Sun:"S"};
@@ -151,7 +132,20 @@
   function attachLiveListenersOnce(){
     if(listenersAttachedFlag) return;
     listenersAttachedFlag = true;
-    attachLiveListeners();
+    // Poll over plain HTTPS every few seconds instead of holding a
+    // persistent connection — more reliable on restrictive networks.
+    setInterval(async () => {
+      if(editingField) return;
+      const [c, g, h, w] = await Promise.all([
+        fbGetOnce("chores", chores),
+        fbGetOnce("goal", goal),
+        fbGetOnce("history", history),
+        fbGetOnce("week", week)
+      ]);
+      chores = c; goal = g; history = h;
+      if(rolloverDone) week = w;
+      render();
+    }, 4000);
   }
 
   function mondayOf(d){
@@ -172,17 +166,23 @@
   }
 
   async function fbGetOnce(key, fallback){
-    if(!firebaseReady) return fallback;
     try{
-      const snap = await db.ref(key).once("value");
-      const val = snap.val();
+      const res = await fetch(`${DB_URL}/${key}.json`, {cache: "no-store"});
+      if(!res.ok) throw new Error("http " + res.status);
+      const val = await res.json();
       return (val === null || val === undefined) ? fallback : val;
     }catch(e){ console.error("read failed", key, e); return fallback; }
   }
   async function fbSet(key, value){
-    if(!firebaseReady) return;
-    try{ await db.ref(key).set(value); connected = true; }
-    catch(e){ console.error("write failed", key, e); connected = false; render(); }
+    try{
+      const res = await fetch(`${DB_URL}/${key}.json`, {
+        method: "PUT",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify(value)
+      });
+      if(!res.ok) throw new Error("http " + res.status);
+      connected = true;
+    }catch(e){ console.error("write failed", key, e); connected = false; render(); }
   }
 
   async function init(){
@@ -234,25 +234,7 @@
     }
   }, 6000);
 
-  function attachLiveListeners(){
-    if(!firebaseReady) return;
-    db.ref("chores").on("value", snap => {
-      const v = snap.val();
-      if(v !== null){ chores = v; connected = true; if(!editingField) render(); }
-    });
-    db.ref("goal").on("value", snap => {
-      const v = snap.val();
-      if(v !== null){ goal = v; connected = true; if(!editingField) render(); }
-    });
-    db.ref("history").on("value", snap => {
-      const v = snap.val();
-      if(v !== null){ history = v; connected = true; if(!editingField) render(); }
-    });
-    db.ref("week").on("value", snap => {
-      const v = snap.val();
-      if(v !== null && rolloverDone){ week = v; connected = true; render(); }
-    });
-  }
+  
 
   function statusOf(choreId, day){
     return (week.log[choreId] && week.log[choreId][day]) || "missed";
