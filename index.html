@@ -143,7 +143,10 @@
         fbGetOnce("week", week)
       ]);
       chores = c; goal = g; history = h;
-      if(rolloverDone) week = w;
+      if(rolloverDone){
+        if(w && !w.log) w.log = {};
+        week = w;
+      }
       render();
     }, 4000);
   }
@@ -182,7 +185,11 @@
       });
       if(!res.ok) throw new Error("http " + res.status);
       connected = true;
-    }catch(e){ console.error("write failed", key, e); connected = false; render(); }
+    }catch(e){
+      console.error("write failed", key, e);
+      connected = false;
+      if(initCompleted) render();
+    }
   }
 
   async function init(){
@@ -194,6 +201,7 @@
 
     history = await fbGetOnce("history", []);
     week = await fbGetOnce("week", null);
+    if(week && !week.log) week.log = {}; // Firebase drops empty nested objects on save
 
     const currentMonday = mondayOf(new Date());
     if(!week){
@@ -237,6 +245,7 @@
   
 
   function statusOf(choreId, day){
+    if(!week || !week.log) return "missed";
     return (week.log[choreId] && week.log[choreId][day]) || "missed";
   }
   function setStatus(choreId, day, status){
@@ -258,6 +267,7 @@
   }
 
   function computeWeekEarned(wk){
+    if(!wk || !wk.log) return 0;
     let total = 0;
     for(const chore of chores){
       if(chore.type !== "paid") continue;
