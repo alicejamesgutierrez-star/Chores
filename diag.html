@@ -1,0 +1,57 @@
+<style>
+  body{font-family:monospace;font-size:15px;padding:20px;background:#fff;color:#111;line-height:1.6;}
+  .ok{color:#0a7a3d;}
+  .fail{color:#a6412f;}
+  .pending{color:#9c6b26;}
+  #log div{margin-bottom:6px;padding:6px 8px;border-radius:6px;background:#f4f5f7;}
+</style>
+<h3>Connection diagnostic</h3>
+<div id="log"></div>
+<script>
+  const DB_URL = "https://sams-chores-default-rtdb.asia-southeast1.firebasedatabase.app";
+  const log = document.getElementById("log");
+  function line(text, cls){
+    const d = document.createElement("div");
+    d.className = cls || "";
+    d.textContent = text;
+    log.appendChild(d);
+  }
+
+  line("Step 1: page JavaScript started running.", "ok");
+  line("Time now: " + new Date().toLocaleTimeString());
+
+  line("Step 2: about to request " + DB_URL + "/chores.json ...", "pending");
+  const startTime = Date.now();
+
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => {
+    controller.abort();
+  }, 8000);
+
+  fetch(DB_URL + "/chores.json", {cache: "no-store", signal: controller.signal})
+    .then(res => {
+      clearTimeout(timeoutId);
+      const ms = Date.now() - startTime;
+      line("Step 3: got an HTTP response after " + ms + "ms — status " + res.status, "ok");
+      return res.text();
+    })
+    .then(text => {
+      line("Step 4: response body (first 200 chars): " + text.slice(0,200), "ok");
+      line("RESULT: fetch works fine from this page. The problem is something else.", "ok");
+    })
+    .catch(err => {
+      clearTimeout(timeoutId);
+      const ms = Date.now() - startTime;
+      if(err.name === "AbortError"){
+        line("Step 3 FAILED: no response at all after " + ms + "ms — request timed out/hung.", "fail");
+        line("RESULT: this points to the network silently blocking this specific database address.", "fail");
+      } else {
+        line("Step 3 FAILED after " + ms + "ms — error: " + err.name + ": " + err.message, "fail");
+        line("RESULT: this is likely a CORS or security-policy block, not a hang.", "fail");
+      }
+    });
+
+  setTimeout(() => {
+    line("--- 10 second checkpoint reached, see above for what happened ---");
+  }, 10000);
+</script>
